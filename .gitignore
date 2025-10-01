@@ -1,0 +1,25 @@
+# ---- Python (server) ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.venv/
+env/
+venv/
+server/.env
+*.sqlite3
+
+# ---- Node / Next.js (frontend) ----
+frontend/node_modules/
+frontend/.next/
+frontend/.vercel/
+frontend/.env.local
+frontend/.env*
+
+# ---- OS/Editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
