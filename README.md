@@ -84,7 +84,7 @@ NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
 
 (add this in frontend/.env.local)
 
-📂 Example Workflow
+## 📂 Example Workflow
 
 Run backend (uvicorn …).
 
@@ -98,7 +98,7 @@ Adjust assumptions → Run Scenario.
 
 View forecast + CFO analysis + export CSV.
 
-🌐 Deployment
+## 🌐 Deployment
 
 Backend → Render / GCP Cloud Run
 
@@ -109,10 +109,12 @@ Set env vars in hosting platform:
 NEXT_PUBLIC_BACKEND_URL=https://your-backend-url.com
 ```
 
-📜 License
+## 📜 License
 
 MIT — free to use, and share.
 
-✨ Credits
+## ✨ Credits
 
 Built by William Kim
+
+---
