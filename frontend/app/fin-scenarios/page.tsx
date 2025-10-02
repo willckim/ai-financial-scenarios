@@ -218,7 +218,6 @@ export default function FinancialScenarioPage() {
 }
 
 /* ---------- UI helpers ---------- */
-
 function Num({
   label, value, setValue, step = 0.01, min, max,
 }: {
