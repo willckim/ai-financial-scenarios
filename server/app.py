@@ -1,25 +1,32 @@
 from __future__ import annotations
 import os, io
 from pathlib import Path
+
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from dotenv import load_dotenv
 
-# load env that sits next to this file (server/.env)
+# Load env that sits next to this file (server/.env)
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
-# relative imports (server is a package)
-from .schemas import Scenario, AnalyzeResponse
-from .finance import project
-from .prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
-from .llm import LLM  # provider-agnostic router (Anthropic / OpenAI / Azure)
+# Absolute imports (since Root Directory = server)
+from schemas import Scenario, AnalyzeResponse
+from finance import project
+from prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+from llm import LLM  # provider-agnostic router (Anthropic / OpenAI / Azure)
+
+# -------------------------------------------------------------------
 
 app = FastAPI(title="Financial Scenario Generator")
+
+# CORS (loosened for now; tighten in prod)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten before prod
+    allow_origins=[
+        "*",  # replace with ["https://ai-financial-scenarios.com", "https://*.vercel.app"] in prod
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,16 +34,23 @@ app.add_middleware(
 
 llm = LLM()
 
+# -------------------------------------------------------------------
+
 @app.get("/health")
 def health():
+    """Health check with provider availability."""
     return {
         "ok": True,
         "providers": {
             "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
             "openai": bool(os.getenv("OPENAI_API_KEY")),
-            "azure": bool(os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY")),
+            "azure": bool(
+                os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY")
+            ),
         },
     }
+
+# -------------------------------------------------------------------
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
@@ -50,7 +64,11 @@ async def analyze(
     try:
         scenario = Scenario.model_validate_json(scenario_json)
     except ValidationError as e:
-        return {"forecast": [], "summary": f"Invalid scenario: {e}", "key_metrics": {}}
+        return {
+            "forecast": [],
+            "summary": f"Invalid scenario: {e}",
+            "key_metrics": {},
+        }
 
     # Read CSV
     content = await file.read()
@@ -59,11 +77,15 @@ async def analyze(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not read CSV: {e}")
 
+    # Validate required columns
     required = {"month", "revenue", "cogs", "opex", "customers"}
     cols_lower = [c.lower() for c in hist.columns]
     missing = required - set(cols_lower)
     if missing:
-        raise HTTPException(status_code=400, detail=f"Missing columns: {sorted(missing)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing columns: {sorted(missing)}"
+        )
 
     # Normalize cols
     hist.columns = cols_lower
@@ -78,7 +100,7 @@ async def analyze(
 
     # Build prompt (compact views to save tokens)
     hist_small = hist.tail(6).to_string(index=False)
-    proj_small = proj.head(min(6, len(proj))).to_string(index=False)  # reduced from 12 → 6
+    proj_small = proj.head(min(6, len(proj))).to_string(index=False)
     user_prompt = USER_PROMPT_TEMPLATE.format(
         historicals_table=hist_small,
         months=scenario.months_ahead,
@@ -93,7 +115,7 @@ async def analyze(
             system=SYSTEM_PROMPT,
             user=user_prompt,
             model=(model or None),
-            max_tokens=max_gen_tokens,   # bumped from 800; default 2200
+            max_tokens=max_gen_tokens,
             temperature=0.2,
         )
     except RuntimeError as e:
@@ -101,6 +123,7 @@ async def analyze(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}")
 
+    # Return response
     return AnalyzeResponse(
         forecast=proj.to_dict(orient="records"),
         summary=summary_text,
